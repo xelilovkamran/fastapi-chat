@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>FastAPI Chat</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      .chat-container {
+        height: 70vh;
+        overflow-y: auto;
+      }
+      .message {
+        margin: 10px;
+        padding: 10px;
+        border-radius: 10px;
+      }
+      .sent {
+        background-color: #007bff;
+        color: white;
+        margin-left: 20%;
+      }
+      .received {
+        background-color: #e9ecef;
+        margin-right: 20%;
+      }
+      .hidden {
+        display: none;
+      }
+      #chat-section {
+        display: none;
+      }
+      .user-item {
+        cursor: pointer;
+      }
+      .user-item:hover {
+        background-color: #f8f9fa;
+      }
+      .user-item.active {
+        background-color: #e9ecef;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container mt-5">
+      <!-- Auth Section -->
+      <div id="auth-section">
+        <div class="row justify-content-center">
+          <div class="col-md-6">
+            <!-- Login Form -->
+            <div class="card mb-4">
+              <div class="card-header">
+                <h3>Login</h3>
+              </div>
+              <div class="card-body">
+                <form id="login-form">
+                  <div class="mb-3">
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="login-email"
+                      placeholder="Email"
+                      required
+                    />
+                  </div>
+                  <div class="mb-3">
+                    <input
+                      type="password"
+                      class="form-control"
+                      id="login-password"
+                      placeholder="Password"
+                      required
+                    />
+                  </div>
+                  <button type="submit" class="btn btn-primary">Login</button>
+                </form>
+              </div>
+            </div>
+
+            <!-- Register Form -->
+            <div class="card">
+              <div class="card-header">
+                <h3>Register</h3>
+              </div>
+              <div class="card-body">
+                <form id="register-form">
+                  <div class="mb-3">
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="register-username"
+                      placeholder="Username"
+                      required
+                    />
+                  </div>
+                  <div class="mb-3">
+                    <input
+                      type="email"
+                      class="form-control"
+                      id="register-email"
+                      placeholder="Email"
+                      required
+                    />
+                  </div>
+                  <div class="mb-3">
+                    <input
+                      type="password"
+                      class="form-control"
+                      id="register-password"
+                      placeholder="Password"
+                      required
+                    />
+                  </div>
+                  <button type="submit" class="btn btn-success">
+                    Register
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat Section -->
+      <div id="chat-section">
+        <div class="row">
+          <div class="col-md-3">
+            <div class="card">
+              <div
+                class="card-header d-flex justify-content-between align-items-center"
+              >
+                <h4 class="mb-0">Users</h4>
+                <button
+                  class="btn btn-sm btn-outline-primary"
+                  onclick="refreshUsersList()"
+                >
+                  Refresh
+                </button>
+              </div>
+              <div class="card-body">
+                <div id="users-list" class="list-group">
+                  <!-- Users will be added here -->
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-9">
+            <div class="card">
+              <div class="card-header">
+                <h4>
+                  Chat with <span id="selected-user">No user selected</span>
+                </h4>
+              </div>
+              <div class="card-body">
+                <div id="chat-messages" class="chat-container">
+                  <!-- Messages will appear here -->
+                </div>
+                <div class="input-group mt-3">
+                  <input
+                    type="text"
+                    id="message-input"
+                    class="form-control"
+                    placeholder="Type your message..."
+                    disabled
+                  />
+                  <button
+                    class="btn btn-primary"
+                    onclick="sendMessage()"
+                    disabled
+                    id="send-button"
+                  >
+                    Send
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let currentUser = null;
+      let currentUserId = null;
+      let selectedReceiver = null;
+      let selectedReceiverName = null;
+      let ws = null;
+      let accessToken = null;
+
+      // Register form submission
+      document
+        .getElementById("register-form")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const username = document.getElementById("register-username").value;
+          const email = document.getElementById("register-email").value;
+          const password = document.getElementById("register-password").value;
+
+          try {
+            const response = await fetch("http://localhost:8000/users/", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                username,
+                email,
+                password,
+              }),
+            });
+
+            if (response.ok) {
+              alert("Registration successful! Please login.");
+              document.getElementById("register-form").reset();
+            } else {
+              const error = await response.json();
+              alert(error.detail || "Registration failed");
+            }
+          } catch (error) {
+            alert("Registration failed: " + error.message);
+          }
+        });
+
+      // Login form submission
+      document
+        .getElementById("login-form")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const email = document.getElementById("login-email").value;
+          const password = document.getElementById("login-password").value;
+
+          // const formData = new FormData();
+          // formData.append("email", email);
+          // formData.append("password", password);
+          const formData = {
+            email: email,
+            password: password,
+          };
+          console.log(formData);
+
+          try {
+            const response = await fetch("http://localhost:8000/token", {
+              method: "POST",
+              body: JSON.stringify(formData),
+              headers: {
+                "Content-Type": "application/json",
+              },
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              accessToken = data.access_token;
+              currentUser = email;
+              currentUserId = data.user_id;
+
+              // Show chat section and hide auth section
+              document.getElementById("auth-section").style.display = "none";
+              document.getElementById("chat-section").style.display = "block";
+
+              // Connect WebSocket and load users
+              connectWebSocket();
+              refreshUsersList();
+            } else {
+              alert("Login failed");
+            }
+          } catch (error) {
+            alert("Login failed: " + error.message);
+          }
+        });
+
+      async function refreshUsersList() {
+        try {
+          const response = await fetch("http://localhost:8000/users/list", {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          });
+
+          if (response.ok) {
+            const users = await response.json();
+            const usersList = document.getElementById("users-list");
+            usersList.innerHTML = "";
+
+            users.forEach((user) => {
+              const userElement = document.createElement("a");
+              userElement.href = "#";
+              userElement.className =
+                "list-group-item list-group-item-action user-item";
+              userElement.textContent = user.username;
+              userElement.onclick = () => selectUser(user.id, user.username);
+              usersList.appendChild(userElement);
+            });
+          }
+        } catch (error) {
+          console.error("Failed to fetch users:", error);
+        }
+      }
+
+      function selectUser(userId, username) {
+        selectedReceiver = userId;
+        selectedReceiverName = username;
+        document.getElementById("selected-user").textContent = username;
+        document.getElementById("message-input").disabled = false;
+        document.getElementById("send-button").disabled = false;
+
+        // Update active user in the list
+        document.querySelectorAll(".user-item").forEach((item) => {
+          item.classList.remove("active");
+          if (item.textContent === username) {
+            item.classList.add("active");
+          }
+        });
+
+        // Clear chat messages
+        document.getElementById("chat-messages").innerHTML = "";
+
+        // Load chat history
+        loadChatHistory(userId);
+      }
+
+      async function loadChatHistory(userId) {
+        try {
+          const response = await fetch(
+            `http://localhost:8000/messages/${userId}`,
+            {
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+              },
+            }
+          );
+
+          if (response.ok) {
+            const messages = await response.json();
+            const chatMessages = document.getElementById("chat-messages");
+            chatMessages.innerHTML = "";
+
+            messages.forEach((message) => {
+              displayMessage(
+                message.content,
+                message.sender_id === currentUserId
+              );
+            });
+          }
+        } catch (error) {
+          console.error("Failed to load messages:", error);
+        }
+      }
+
+      function connectWebSocket() {
+        ws = new WebSocket(`ws://localhost:8000/ws/${currentUserId}`);
+
+        ws.onmessage = function (event) {
+          const data = JSON.parse(event.data);
+          displayMessage(data.content, data.sender_id === currentUserId);
+        };
+
+        ws.onclose = function () {
+          console.log("WebSocket connection closed");
+          // Attempt to reconnect after a delay
+          setTimeout(connectWebSocket, 1000);
+        };
+      }
+
+      function sendMessage() {
+        if (!selectedReceiver) {
+          alert("Please select a user to chat with");
+          return;
+        }
+
+        const messageInput = document.getElementById("message-input");
+        const content = messageInput.value.trim();
+
+        if (content && ws && ws.readyState === WebSocket.OPEN) {
+          const messageData = {
+            content: content,
+            receiver_id: selectedReceiver,
+          };
+
+          ws.send(JSON.stringify(messageData));
+          displayMessage(content, true);
+          messageInput.value = "";
+        }
+      }
+
+      function displayMessage(content, isSent) {
+        const messagesContainer = document.getElementById("chat-messages");
+        const messageDiv = document.createElement("div");
+        messageDiv.className = `message ${isSent ? "sent" : "received"}`;
+        messageDiv.textContent = content;
+        messagesContainer.appendChild(messageDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
+
+      // Handle Enter key in message input
+      document
+        .getElementById("message-input")
+        .addEventListener("keypress", function (e) {
+          if (e.key === "Enter") {
+            sendMessage();
+          }
+        });
+    </script>
+  </body>
+</html>
