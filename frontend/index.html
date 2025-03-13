@@ -187,6 +187,7 @@
       let selectedReceiverName = null;
       let ws = null;
       let accessToken = null;
+      const apiUrl = "http://165.22.69.92:8000";
 
       // Register form submission
       document
@@ -198,7 +199,7 @@
           const password = document.getElementById("register-password").value;
 
           try {
-            const response = await fetch("http://localhost:8000/users/", {
+            const response = await fetch(`${apiUrl}/users/`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
@@ -240,7 +241,7 @@
           console.log(formData);
 
           try {
-            const response = await fetch("http://localhost:8000/token", {
+            const response = await fetch(`${apiUrl}/token`, {
               method: "POST",
               body: JSON.stringify(formData),
               headers: {
@@ -271,7 +272,7 @@
 
       async function refreshUsersList() {
         try {
-          const response = await fetch("http://localhost:8000/users/list", {
+          const response = await fetch(`${apiUrl}/users/list`, {
             headers: {
               Authorization: `Bearer ${accessToken}`,
             },
@@ -321,14 +322,11 @@
 
       async function loadChatHistory(userId) {
         try {
-          const response = await fetch(
-            `http://localhost:8000/messages/${userId}`,
-            {
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-              },
-            }
-          );
+          const response = await fetch(`${apiUrl}/messages/${userId}`, {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          });
 
           if (response.ok) {
             const messages = await response.json();
@@ -348,7 +346,7 @@
       }
 
       function connectWebSocket() {
-        ws = new WebSocket(`ws://localhost:8000/ws/${currentUserId}`);
+        ws = new WebSocket(`ws://165.22.69.92/:8000/ws/${currentUserId}`);
 
         ws.onmessage = function (event) {
           const data = JSON.parse(event.data);
