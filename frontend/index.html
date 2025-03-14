@@ -188,7 +188,7 @@
       let ws = null;
       let accessToken = null;
       // const apiUrl = "http://127.0.0.1:8000";
-      const apiUrl = "http://165.22.69.92:8000";
+      const apiUrl = "https://c40e-165-22-69-92.ngrok-free.app";
 
       // Register form submission
       document
@@ -347,7 +347,9 @@
       }
 
       function connectWebSocket() {
-        ws = new WebSocket(`ws://165.22.69.92:8000/ws/${currentUserId}`);
+        ws = new WebSocket(
+          `ws://c40e-165-22-69-92.ngrok-free.app/ws/${currentUserId}`
+        );
         // ws = new WebSocket(`ws://127.0.0.1:8000/ws/${currentUserId}`);
 
         ws.onmessage = function (event) {
