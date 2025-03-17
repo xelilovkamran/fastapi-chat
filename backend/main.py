@@ -189,11 +189,14 @@ async def websocket_endpoint(
 @app.get("/messages/{user_id}", response_model=List[schemas.Message])
 async def get_user_messages(
     user_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(get_current_user)
 ):
     messages = db.query(models.Message).filter(
-        (models.Message.sender_id == user_id) |
-        (models.Message.receiver_id == user_id)
+        ((models.Message.sender_id == current_user.id) &
+         (models.Message.receiver_id == user_id)) |
+        ((models.Message.sender_id == user_id) &
+         (models.Message.receiver_id == current_user.id))
     ).all()
     return messages
 
