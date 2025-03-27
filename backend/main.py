@@ -111,7 +111,15 @@ def read_users_me(
 async def get_users(current_user: schemas.User = Depends(get_current_user), db: Session = Depends(get_db)):
     users = db.query(models.User).filter(
         models.User.id != current_user.id).all()
-    return users
+
+    response = []
+    for user in users:
+        response.append({
+            "id": user.id,
+            "username": user.username,
+            "email": user.email
+        })
+    return response
 
 
 @app.post("/users/", response_model=schemas.User)
