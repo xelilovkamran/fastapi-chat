@@ -189,7 +189,7 @@
       let accessToken = null;
       // const apiUrl = "http://127.0.0.1:8000";
       // const apiUrl = "https://e875-165-22-69-92.ngrok-free.app";
-      const apiUrl = "https://81fe-165-22-69-92.ngrok-free.app";
+      const apiUrl = "https://878a-165-22-69-92.ngrok-free.app";
       // const apiUrl = "http://165.22.69.92:8000";
 
       // Register form submission
@@ -206,6 +206,7 @@
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
+                "ngrok-skip-browser-warning": "true",
               },
               body: JSON.stringify({
                 username,
@@ -249,6 +250,7 @@
               body: JSON.stringify(formData),
               headers: {
                 "Content-Type": "application/json",
+                "ngrok-skip-browser-warning": "true",
               },
             });
 
@@ -278,6 +280,7 @@
           const response = await fetch(`${apiUrl}/users/list`, {
             headers: {
               Authorization: `Bearer ${accessToken}`,
+              "ngrok-skip-browser-warning": "true",
             },
           });
 
@@ -329,6 +332,7 @@
           const response = await fetch(`${apiUrl}/messages/${userId}`, {
             headers: {
               Authorization: `Bearer ${accessToken}`,
+              "ngrok-skip-browser-warning": "true",
             },
           });
 
@@ -354,7 +358,7 @@
         //   `wss://e875-165-22-69-92.ngrok-free.app/ws/${currentUserId}`
         // );
         ws = new WebSocket(
-          `wss://81fe-165-22-69-92.ngrok-free.app/ws/${currentUserId}`
+          `wss://878a-165-22-69-92.ngrok-free.app/ws/${currentUserId}`
         );
         // ws = new WebSocket(`ws://165.22.69.92:8000/ws/${currentUserId}`);
         // ws = new WebSocket(`ws://127.0.0.1:8000/ws/${currentUserId}`);
