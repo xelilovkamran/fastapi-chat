@@ -12,6 +12,18 @@ from database import engine, get_db
 from jose import JWTError, jwt
 from dotenv import load_dotenv
 import os
+import logging
+import sys
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -68,8 +80,11 @@ def verify_token(token: str) -> Optional[dict]:
         payload = jwt.decode(
             token, SECRET_KEY, algorithms=[ALGORITHM]
         )
+        logger.debug(
+            f"Token verified successfully for user: {payload.get('sub')}")
         return payload
-    except JWTError:
+    except JWTError as e:
+        logger.warning(f"Token verification failed: {str(e)}")
         return None
 
 
@@ -117,9 +132,12 @@ async def get_users(current_user: schemas.User = Depends(get_current_user), db: 
 
 @app.post("/users/", response_model=schemas.User)
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
+    logger.info(f"Attempting to create new user with email: {user.email}")
     db_user = db.query(models.User).filter(
         models.User.email == user.email).first()
     if db_user:
+        logger.warning(
+            f"User creation failed - Email already registered: {user.email}")
         raise HTTPException(status_code=400, detail="Email already registered")
     hashed_password = get_password_hash(user.password)
     db_user = models.User(
@@ -130,20 +148,24 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
+    logger.info(f"Successfully created new user with ID: {db_user.id}")
     return db_user
 
 
 @app.post("/token")
 async def login(login_data: schemas.LoginRequest, db: Session = Depends(get_db)):
+    logger.info(f"Login attempt for user: {login_data.email}")
     user = db.query(models.User).filter(
         models.User.email == login_data.email).first()
     if not user or not verify_password(login_data.password, user.hashed_password):
+        logger.warning(f"Failed login attempt for user: {login_data.email}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
     access_token = create_access_token(data={"sub": user.email})
+    logger.info(f"Successful login for user: {user.email}")
     return {"access_token": access_token, "token_type": "bearer", "user_id": user.id}
 
 
@@ -153,13 +175,17 @@ async def websocket_endpoint(
     websocket: WebSocket,
     db: Session = Depends(get_db)
 ):
+    logger.info(f"New WebSocket connection attempt for user_id: {user_id}")
     await websocket.accept()
     connected_users[user_id] = websocket
+    logger.info(f"WebSocket connection established for user_id: {user_id}")
 
     try:
         while True:
             data = await websocket.receive_text()
             message_data = json.loads(data)
+            logger.info(
+                f"Received message from user {user_id} to user {message_data.get('receiver_id')}")
 
             # Save message to database
             db_message = models.Message(
@@ -169,6 +195,7 @@ async def websocket_endpoint(
             )
             db.add(db_message)
             db.commit()
+            logger.debug(f"Message saved to database with ID: {db_message.id}")
 
             # Send the received data to the specific receiver
             receiver_ws = connected_users.get(
@@ -178,13 +205,19 @@ async def websocket_endpoint(
                     "content": message_data["content"],
                     "sender_id": int(user_id)
                 }))
+                logger.debug(
+                    f"Message forwarded to receiver: {message_data.get('receiver_id')}")
+            else:
+                logger.warning(
+                    f"Receiver {message_data.get('receiver_id')} not connected")
     except Exception as e:
-        print(f"Error: {e}")
+        logger.error(f"WebSocket error for user {user_id}: {str(e)}")
         del connected_users[user_id]
         await websocket.close()
     finally:
         if user_id in connected_users:
             del connected_users[user_id]
+            logger.info(f"WebSocket connection closed for user_id: {user_id}")
 
 
 @app.get("/messages/{user_id}", response_model=List[schemas.Message])
@@ -193,12 +226,15 @@ async def get_user_messages(
     db: Session = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user)
 ):
+    logger.info(
+        f"Fetching messages between users {current_user.id} and {user_id}")
     messages = db.query(models.Message).filter(
         ((models.Message.sender_id == current_user.id) &
          (models.Message.receiver_id == user_id)) |
         ((models.Message.sender_id == user_id) &
          (models.Message.receiver_id == current_user.id))
     ).all()
+    logger.debug(f"Retrieved {len(messages)} messages")
     return messages
 
 if __name__ == "__main__":
