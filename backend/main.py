@@ -1,3 +1,4 @@
+from logging.handlers import RotatingFileHandler
 from fastapi import FastAPI, WebSocket, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -14,16 +15,36 @@ from dotenv import load_dotenv
 import os
 import logging
 import sys
+from pathlib import Path
+
+# Create logs directory if it doesn't exist
+log_dir = Path("logs")
+log_dir.mkdir(exist_ok=True)
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.StreamHandler(sys.stdout)
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler(
+            filename=log_dir / "app.log",
+            encoding='utf-8'
+        )
     ]
 )
 logger = logging.getLogger(__name__)
+
+# Add a rotating file handler for larger log files
+rotating_handler = RotatingFileHandler(
+    filename=log_dir / "app_rotating.log",
+    maxBytes=10*1024*1024,  # 10MB
+    backupCount=5,
+    encoding='utf-8'
+)
+rotating_handler.setFormatter(logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+logger.addHandler(rotating_handler)
 
 load_dotenv()
 
